@@ -1,5 +1,36 @@
 # Face Recognition Using Eigenfaces and Pattern Classification
 
+> **UNIVERSITY OF GHANA**<br>
+> *All rights reserved*
+>
+> **MPHIL/MSC DATA SCIENCE, SECOND SEMESTER EXAMINATIONS: 2025/2026**<br>
+> **DSCD612: PATTERN RECOGNITION (3 CREDITS)**
+
+## Examination coursework brief
+
+This repository is the final-examination coursework submission for DSCD612.
+The coursework consists of four independent practical projects; each student
+selects and completes **one** project. This submission implements Project 3:
+face recognition using eigenfaces and pattern classification.
+
+The assessment objective is not merely high classification accuracy. It calls
+for an understood and justified pattern-recognition pipeline, appropriate
+algorithm implementation, scientific evaluation, and interpretation of the
+findings. Each project should include:
+
+1. Problem formulation and dataset description.
+2. Exploratory analysis and appropriate preprocessing.
+3. Feature representation and/or feature extraction.
+4. Mathematical explanation of the principal algorithms employed.
+5. Python implementation.
+6. Appropriate experimental design, including training/test separation where classification is involved.
+7. Quantitative evaluation and comparison of methods.
+8. Visualization and interpretation of results.
+9. Critical discussion of limitations.
+10. A concise technical report accompanied by executable Jupyter Notebook/Python code.
+
+---
+
 DSCD612 Pattern Recognition — Project 3
 Daniel Kpakpo Adotey · ID 22424924 · dkadotey@st.ug.edu.gh
 MPhil/MSc Data Science, University of Ghana, Second Semester 2025/2026
