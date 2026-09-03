@@ -18,7 +18,7 @@
 \title{\vspace{-1.4cm}\textbf{Face Recognition Using Eigenfaces\\and Pattern Classification}}
 \author{Daniel Kpakpo Adotey~~\textbar~~ID 22424924\\
 \texttt{dkadotey@st.ug.edu.gh}\\[0.35em]
-DSCD612 Pattern Recognition --- Project 3\\
+DSCD612 Pattern Recognition, Project 3\\
 MPhil/MSc Data Science, University of Ghana}
 \date{Second Semester, 2025/2026}
 
@@ -106,9 +106,13 @@ left-multiplying by $A^{T}$ gives
 \label{eq:snapshot}
 \end{equation}
 so $A^{T}u_i$ is an eigenvector of $\Sigma$ carrying the same eigenvalue. The
-non-zero spectrum of a $4096\times4096$ matrix follows from a $280\times280$
-eigenproblem, which cut fitting time from $12.8$~s to $0.020$~s, a 626-fold
-reduction. The resulting vectors are normalised to unit length.
+non-zero spectrum of a $4096\times4096$ matrix therefore follows from an
+$N\times N$ eigenproblem, $280\times280$ when fitting on a training split, and
+the cost of the decomposition falls from $O(d^{3})$ to $O(N^{3})$. Benchmarked
+on the full 400-image matrix this is a reduction of roughly two orders of
+magnitude. The exact ratio depends on the hardware and on the BLAS
+implementation, so the notebook measures it on each run rather than fixing a
+figure here. The resulting vectors are normalised to unit length.
 
 Each $v_i$ lies in $\mathbb{R}^{4096}$, the space of the images themselves, so
 it reshapes to $64\times64$ and displays as a \emph{pattern of deviation from
@@ -151,9 +155,38 @@ from it. With 120 test images a single split carries a standard error near 2.4
 percentage points, so every figure reported here averages \textbf{10}
 independent splits and carries its standard deviation.
 
+One caveat applies to the choice of $k$ and is stated here rather than left
+implicit. Two values recur below: $k=75$, the position of the maximum of the
+mean accuracy curve, and $k=25$, the smallest $k$ whose mean accuracy lies
+within one standard deviation of that maximum. Both were read off the same
+test splits that the results are reported on, so neither is a clean held-out
+estimate, and the figures quoted at those $k$ carry some optimism. The
+accuracy curve bounds it: plain projection moves from $0.926$ at $k=25$ to
+$0.937$ at its peak and stays flat to $k=279$, a span of about one point,
+which is within the split-to-split standard deviation of $0.013$. Selecting
+$k$ on a validation partition carved out of the training images would remove
+the dependence altogether, and is the correct construction where the choice of
+$k$ has to carry more weight than it does here.
+
 %======================================================================
 \section{Results}
 %======================================================================
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.24\textwidth]{05_mean_face_train.png}
+\caption{The mean face $\mu$, averaged over the 280 training images. Every
+Eigenface below is a pattern of deviation from this image, and every
+reconstruction begins here.}
+\label{fig:meanface}
+\end{figure}
+
+Figure~\ref{fig:meanface} shows $\mu$. It is a blurred, generic frontal face,
+which is what the average of 40 identities under varying expression and
+lighting should look like: the features that all faces share survive the
+averaging and everything identifying cancels. Subtracting it is what makes the
+first component describe variation between faces rather than the shared
+structure common to all of them.
 
 \begin{figure}[htbp]
 \centering
@@ -167,12 +200,12 @@ frequency and describe whole-image photometric structure rather than facial
 detail. $v_1$ is a broad contrast pattern separating the brow and eye band from
 the rest of the face, $v_2$ is nearly flat and encodes overall luminance, and
 $v_3$ carries a top-to-bottom intensity gradient. None of them describes who the
-person is. Recognisable structure begins at $v_4$ --- spectacle frames,
+person is. Recognisable structure begins at $v_4$: spectacle frames,
 hairline, moustaches, and changes around the mouth. Later components grow more
 localised and higher in frequency, carrying identity information alongside
 sampling noise specific to these training images.
 
-The variance thresholds requested by the brief need 59, 103, and 198 components
+The conventional variance thresholds need 59, 103, and 198 components
 for 90\%, 95\%, and 99\% respectively, that is 1.44\%, 2.51\%, and 4.83\% of the
 original 4096 dimensions. The first component alone holds 23.4\% of total
 variance and the first ten hold 66.1\%.
@@ -333,9 +366,9 @@ $0.783$, so those three directions absorb nearly the whole perturbation. This is
 experimental support for the reading of the component structure given earlier:
 the leading eigenfaces encode photometric conditions rather than identity.
 Discarding the three directions that carry the largest share of variance in the
-entire dataset improves recognition under illumination change. Variance ranking
-and discriminative value are not merely different; at the top of the spectrum
-they oppose each other.
+entire dataset improves recognition under illumination change. At the top of
+the spectrum, variance ranking and discriminative value work against each
+other.
 
 Under matched illumination, dropping up to three components moves accuracy by
 less than one standard deviation either way, and dropping beyond about five
@@ -409,9 +442,11 @@ manifold a linear subspace only approximates. The scale is small. Even across
 ten splits the standard deviation at the operating point is about 1.5 percentage
 points, so differences of a point or two carry no interpretation here. Accuracy
 also falls as the gallery grows, so these figures would not transfer to
-thousands of identities. The illumination model is synthetic, omitting cast
-shadows, specularities, and saturation, all non-linear effects likely to degrade
-performance further. The setting is closed-set: nearest-neighbour classification
+thousands of identities. The illumination model is synthetic. It clips at
+unity, so saturation is represented, and at the strongest ramps a substantial
+part of the brightened side of each image is clipped; but it omits cast shadows
+and specularities, both non-linear effects likely to degrade performance
+further. The setting is closed-set: nearest-neighbour classification
 always returns some identity, whereas a deployed system needs a rejection
 threshold, a separate problem.
 
@@ -419,9 +454,10 @@ threshold, a separate problem.
 \section{Conclusions}
 %======================================================================
 
-The snapshot trick recovers the eigenfaces from a $280\times280$ eigenproblem
-instead of a $4096\times4096$ one, 626 times faster, matching a reference
-implementation to machine precision. The leading eigenfaces encode photometric
+The snapshot trick recovers the eigenfaces from an $N\times N$ eigenproblem
+instead of a $4096\times4096$ one, roughly two orders of magnitude faster,
+matching a reference implementation to machine precision. The leading
+eigenfaces encode photometric
 conditions rather than identity, a consequence of ranking directions by variance
 and confirmed by the illumination experiment. Recognition accuracy saturates at
 a few tens of components while reconstruction error keeps falling, so the

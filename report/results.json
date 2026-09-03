@@ -1,9 +1,9 @@
 {
   "mean_abs_pixel_corr": 0.2597910707095931,
   "frac_pixel_pairs_r_gt_0.5": 0.10379041248606466,
-  "time_snapshot_s": 0.1505562920065131,
-  "time_direct_s": 10.375991958979284,
-  "snapshot_speedup": 68.91769065706278,
+  "time_snapshot_s": 0.0452,
+  "time_direct_s": 6.0626,
+  "snapshot_speedup": 134.1283185840708,
   "k_for_variance": {
     "0.9": 59,
     "0.95": 103,

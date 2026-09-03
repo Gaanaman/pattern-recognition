@@ -14,7 +14,7 @@
 # %% [markdown]
 # # Face Recognition Using Eigenfaces and Pattern Classification
 #
-# **DSCD612 Pattern Recognition — Project 3**
+# **DSCD612 Pattern Recognition, Project 3**
 #
 # Daniel Kpakpo Adotey · ID 22424924 · dkadotey@st.ug.edu.gh
 # University of Ghana, MPhil/MSc Data Science, Second Semester 2025/2026
@@ -46,10 +46,10 @@
 # > identity-discriminating information is significantly lost?**
 #
 # The question is sharper than it first appears, because "information" can be
-# measured two ways — by *reconstruction* (how much pixel variance is retained)
+# measured two ways: by *reconstruction* (how much pixel variance is retained)
 # and by *discrimination* (how well identities can still be told apart). A
 # central finding below is that these two measures disagree by roughly a factor
-# of five, and that the disagreement has a clear cause.
+# of four, and that the disagreement has a clear cause.
 #
 # ## 2. Dataset
 #
@@ -68,8 +68,8 @@
 #
 # The dataset is well matched to the project: 40 classes is a genuine multiclass
 # problem, and 10 images per subject is enough to separate training from test
-# while remaining small enough that the small-sample behaviour of PCA — the
-# interesting regime — is visible.
+# while remaining small enough that the small-sample behaviour of PCA, the
+# interesting regime, is visible.
 
 # %%
 import json
@@ -123,7 +123,7 @@ print(f"numpy {np.__version__}")
 #
 # Flattening discards the 2-D neighbourhood structure of the image: pixel
 # $(r, c)$ and pixel $(r+1, c)$ are adjacent on the face but 64 positions apart
-# in the vector. PCA does not need that structure — it recovers spatial
+# in the vector. PCA does not need that structure; it recovers spatial
 # correlation from the data itself, which is why the eigenvectors turn out to
 # look like faces rather than noise.
 
@@ -246,7 +246,7 @@ ef.save(fig, FIG / "04_mean_face.png")
 plt.show()
 
 # %% [markdown]
-# The mean face is a blurred, generic frontal face — the average of 40 people
+# The mean face is a blurred, generic frontal face: the average of 40 people
 # retains the shared geometry and washes out individual detail. The
 # mean-centred images to its right show what remains once that shared structure
 # is subtracted: precisely the identity- and condition-specific deviations that
@@ -284,7 +284,7 @@ plt.show()
 # the eigenvalue *is* the variance captured along that direction. Ordering
 # $\lambda_1 \ge \lambda_2 \ge \cdots \ge 0$ and keeping the top $k$
 # eigenvectors as columns of $W_k \in \mathbb{R}^{d \times k}$ gives the
-# rank-$k$ subspace that minimises the expected squared reconstruction error —
+# rank-$k$ subspace that minimises the expected squared reconstruction error,
 # the Eckart–Young theorem. $\Sigma$ is real and symmetric, so its eigenvectors
 # are orthogonal and $W_k^T W_k = I_k$.
 #
@@ -311,13 +311,13 @@ plt.show()
 #
 # So $A^T u_i$ is an eigenvector of $\Sigma$ with the **same** eigenvalue
 # $\lambda_i$. The non-zero part of the spectrum of the $4096 \times 4096$
-# covariance matrix is obtained from a $280 \times 280$ eigenproblem — a
-# reduction of roughly three orders of magnitude in cost. The resulting vectors
+# covariance matrix is obtained from a $280 \times 280$ eigenproblem, a
+# reduction of roughly two orders of magnitude in cost. The resulting vectors
 # are not unit-norm, so each is normalised: $v_i = A^T u_i / \|A^T u_i\|$.
 #
 # ### 3.3 Why the eigenvectors are "Eigenfaces"
 #
-# Each $v_i$ is a vector in $\mathbb{R}^{4096}$ — the same space the images
+# Each $v_i$ is a vector in $\mathbb{R}^{4096}$, the same space the images
 # live in. It can therefore be reshaped to $64 \times 64$ and displayed as an
 # image. What it displays is a *pattern of deviation from the mean face*: a
 # coordinated way in which faces in this population differ from the average.
@@ -423,18 +423,36 @@ assert eig_err < 1e-9 and vec_dot.min() > 1 - 1e-6
 print("\nFrom-scratch PCA agrees with scikit-learn to machine precision.")
 
 # %%
-t0 = time.perf_counter()
-EigenfacePCA().fit(X)
-t_snapshot = time.perf_counter() - t0
+# A single perf_counter around the first call measures BLAS thread start-up as
+# much as it measures the decomposition, which made this timing swing by an
+# order of magnitude between runs. Warm both paths first, then take medians.
+def _snapshot_path():
+    EigenfacePCA().fit(X)
 
-t0 = time.perf_counter()
-_cov = np.cov(X - X.mean(0), rowvar=False)
-np.linalg.eigh(_cov)
-t_direct = time.perf_counter() - t0
 
-print(f"Snapshot trick (400x400 eigenproblem) : {t_snapshot:.3f} s")
-print(f"Direct covariance (4096x4096)         : {t_direct:.3f} s")
-print(f"Speed-up: {t_direct/t_snapshot:.1f}x")
+def _direct_path():
+    np.linalg.eigh(np.cov(X - X.mean(0), rowvar=False))
+
+
+def _median_time(fn, reps):
+    ts = []
+    for _ in range(reps):
+        t0 = time.perf_counter()
+        fn()
+        ts.append(time.perf_counter() - t0)
+    return float(np.median(ts))
+
+
+for _ in range(2):          # warm-up, not measured
+    _snapshot_path()
+    _direct_path()
+
+t_snapshot = _median_time(_snapshot_path, 9)
+t_direct = _median_time(_direct_path, 5)
+
+print(f"Snapshot trick (400x400 eigenproblem) : {t_snapshot:.3f} s  (median of 9)")
+print(f"Direct covariance (4096x4096)         : {t_direct:.3f} s  (median of 5)")
+print(f"Speed-up: {t_direct/t_snapshot:.0f}x   (hardware dependent)")
 RESULTS["time_snapshot_s"] = t_snapshot
 RESULTS["time_direct_s"] = t_direct
 RESULTS["snapshot_speedup"] = t_direct / t_snapshot
@@ -455,8 +473,8 @@ RESULTS["snapshot_speedup"] = t_direct / t_snapshot
 # **PCA is fitted on training data only.** The mean face $\mu$ and the
 # eigenfaces $W$ are estimated from the training images; test images are
 # projected with those fixed parameters. Fitting PCA on all 400 images before
-# splitting is a subtle but real form of information leakage — the basis would
-# be partly built from the images it is later evaluated on — and it inflates
+# splitting is a subtle but real form of information leakage, since the basis would
+# be partly built from the images it is later evaluated on, and it inflates
 # reported accuracy. This is enforced throughout.
 #
 # **Repetition over splits.** With only 120 test images, a single split has a
@@ -587,8 +605,8 @@ RESULTS["evr_first"] = float(pca.explained_variance_ratio_[0])
 RESULTS["evr_first10"] = float(cum_var[9])
 
 # %% [markdown]
-# The spectrum decays steeply — the first component alone accounts for more
-# variance than components 30 to 279 combined — but it has a long tail. These
+# The spectrum decays steeply: the first component alone accounts for more
+# variance than components 30 to 279 combined, but it has a long tail. These
 # variance-based component counts are recorded now and revisited in Section 10,
 # where they are compared against the number of components recognition
 # actually needs. The two answers differ substantially.
@@ -741,7 +759,7 @@ RESULTS["peak_white"] = {"k": K_GRID[best_white_i], "acc": float(mw[best_white_i
 # overfitting signature: performance peaks at a moderate $k$ and degrades as
 # more components are added.
 #
-# The whitened curve is not perfectly monotone in its decline — it reaches a
+# The whitened curve is not perfectly monotone in its decline; it reaches a
 # minimum near $k = 200$ and recovers somewhat by $k = 279$. The last few
 # components sit at the numerical floor of the spectrum, where the ordering of
 # near-equal eigenvalues is unstable, and the recovery is within roughly two
@@ -753,7 +771,7 @@ RESULTS["peak_white"] = {"k": K_GRID[best_white_i], "acc": float(mw[best_white_i
 # available sample, not by the number that are mathematically available.** With
 # $N_{\text{train}} = 280$, the leading few tens of eigenvectors are stable and
 # the rest are increasingly noise. Whether that noise harms the classifier
-# depends on whether the metric gives it weight — which is why the two curves
+# depends on whether the metric gives it weight, which is why the two curves
 # diverge. The estimator, not the representation alone, determines the answer.
 #
 # The practical consequence is that "how many components should I keep?" has no
@@ -768,7 +786,7 @@ RESULTS["peak_white"] = {"k": K_GRID[best_white_i], "acc": float(mw[best_white_i
 #
 # Two component counts are carried forward. `K_PEAK` is the value that
 # maximises mean accuracy. `K_PARSIMONIOUS` is the *smallest* $k$ whose mean
-# accuracy is within one standard deviation of the peak — the cheapest
+# accuracy is within one standard deviation of the peak, the cheapest
 # representation that is not measurably worse. The second is the more honest
 # answer to the research question, since differences smaller than the noise
 # should not be used to justify a larger model.
@@ -788,7 +806,7 @@ RESULTS["K_PARSIMONIOUS"] = K_PARSIMONIOUS
 # %% [markdown]
 # ### 8.2 How distance influences classification
 #
-# For a nearest-neighbour rule the distance function *is* the model — it is the
+# For a nearest-neighbour rule the distance function *is* the model; it is the
 # only place where an assumption about similarity enters. Three measures are
 # compared on the projected vectors $z, z'$:
 #
@@ -798,8 +816,8 @@ RESULTS["K_PARSIMONIOUS"] = K_PARSIMONIOUS
 # $$d_{\cos}(z,z') = 1 - \frac{z^T z'}{\|z\|\,\|z'\|}.$$
 #
 # They differ in what they treat as important. Euclidean distance squares the
-# per-component differences, so a single large discrepancy — one component
-# badly disturbed by a change in lighting or expression — can dominate the sum.
+# per-component differences, so a single large discrepancy, one component
+# badly disturbed by a change in lighting or expression, can dominate the sum.
 # Manhattan distance sums absolute differences, weights each component
 # linearly, and is correspondingly more tolerant of a few large deviations.
 # Cosine distance discards $\|z\|$ altogether and compares only direction.
@@ -854,8 +872,8 @@ plt.show()
 # Manhattan distance gives the best result at every neighbourhood size,
 # consistent with the argument above: summing absolute rather than squared
 # differences limits the influence of the few components most disturbed by
-# expression and lighting change. The margin over Euclidean is small — well
-# under one standard deviation — so it is a weak preference rather than a
+# expression and lighting change. The margin over Euclidean is small, well
+# under one standard deviation, so it is a weak preference rather than a
 # clear finding. Cosine distance offers no advantage here.
 #
 # The dominant effect is not the distance function but the neighbourhood size.
@@ -864,7 +882,7 @@ plt.show()
 # identity's images in a large fraction of cases. Each subject occupies a small,
 # tight cluster in Eigenface space, and enlarging the neighbourhood
 # necessarily crosses into neighbouring identities. When classes are numerous
-# and sparsely sampled, 1-NN is the appropriate choice — the usual argument
+# and sparsely sampled, 1-NN is the appropriate choice, since the usual argument
 # that larger $n$ smooths noise assumes a sample density this problem does not
 # have.
 
@@ -981,7 +999,7 @@ plt.show()
 
 # %% [markdown]
 # At $k = 1$ every face is essentially the mean face with a lighting
-# adjustment — consistent with $v_1$ encoding illumination. Identity becomes
+# adjustment, consistent with $v_1$ encoding illumination. Identity becomes
 # recognisable to a human viewer somewhere around $k = 20$ to $30$. Beyond
 # $k \approx 100$ the changes are confined to fine texture and are hard to see
 # at this scale, even though the residual variance is still measurably falling.
@@ -1047,7 +1065,7 @@ print(f"95% variance needs      k = {k_for_var[0.95]}, "
 # contributes to pixel fidelity but not to telling one person from another.
 #
 # This is the substantive answer to the research question, and it also explains
-# why a variance threshold — 90%, 95%, 99% — is the wrong criterion for
+# why a variance threshold (90%, 95%, 99%) is the wrong criterion for
 # choosing $k$ in a recognition system. Retaining 95% of the variance costs
 # roughly four times as many components as recognition needs, and buys about
 # one accuracy point, which is inside the split-to-split noise. Those
@@ -1180,7 +1198,7 @@ plt.show()
 # used here is spatially varying: it brightens one side of the face and darkens
 # the other, which rotates the projection rather than merely lengthening it.
 # Discarding the magnitude therefore discards nothing relevant. This is a
-# useful negative result — invariance to a global scaling buys very little
+# useful negative result: invariance to a global scaling buys very little
 # against lighting that has spatial structure, which real lighting always does.
 #
 # **Discarding the first three components works, and works dramatically.** At
@@ -1191,8 +1209,8 @@ plt.show()
 # eigenfaces encode photometric conditions, not identity. Throwing away the
 # three directions that carry the largest share of total variance in the whole
 # dataset substantially *improves* recognition under illumination change.
-# Variance ranking and discriminative value are not merely different — at the
-# top of the spectrum they can be actively opposed.
+# At the top of the spectrum, variance ranking and discriminative value can
+# work against each other.
 
 # %% [markdown]
 # ### 10.3 The cost of the leading components under matched conditions
@@ -1220,7 +1238,7 @@ RESULTS["drop_leading"] = drop_df.round(5).to_dict("records")
 
 # %% [markdown]
 # Under matched illumination, dropping up to three components changes accuracy
-# by less than one standard deviation in either direction — the leading
+# by less than one standard deviation in either direction, since the leading
 # components are not purely photometric, and on this dataset they do carry
 # some usable structure. Dropping more than about five begins to cost real
 # accuracy. Note how much variance is being discarded for that small effect:
@@ -1293,15 +1311,15 @@ RESULTS["research_question_answer"] = answer
 # On this dataset roughly **99% of the original dimensions can be discarded
 # with no measurable loss of identity information**. At $k = 25$ the Eigenface
 # representation scores within one standard deviation of 1-NN on all 4096 raw
-# pixels — nominally a shade lower, by well under the split-to-split noise, so
+# pixels, nominally a shade lower, by well under the split-to-split noise, so
 # the two are not distinguishable at this sample size. The correct statement is
 # that the 164-fold compression is *free*, not that it is beneficial.
 #
 # It is worth being equally careful about the computational claim. The timing
 # above shows the Eigenface pipeline as *slower* than raw 1-NN, because it
 # includes the cost of fitting PCA on every split. The reduction pays for
-# itself at query time and at scale — each comparison is 25 multiplications
-# instead of 4096, and the stored gallery shrinks by the same factor — but on a
+# itself at query time and at scale, since each comparison is 25 multiplications
+# instead of 4096, and the stored gallery shrinks by the same factor, but on a
 # 400-image dataset that saving does not repay the one-off cost of the
 # decomposition.
 #
@@ -1314,7 +1332,7 @@ RESULTS["research_question_answer"] = answer
 # would place the saturation point differently, and almost certainly higher.
 #
 # **The threshold depends on the criterion.** Under reconstruction the answer
-# is far larger — 95% of pixel variance needs several times more components
+# is far larger: 95% of pixel variance needs several times more components
 # than recognition does. "Information" must be defined before the question has
 # a number attached to it.
 #

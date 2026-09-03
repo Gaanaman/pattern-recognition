@@ -42,7 +42,7 @@ notebooks/eigenfaces_project.ipynb   main deliverable, runs top to bottom
 notebooks/eigenfaces_project.py      same notebook in jupytext percent format
 src/eigenfaces.py                    splitting, perturbation, metric and plotting helpers
 report/report.tex                    technical report (LaTeX source)
-report/report.pdf                    technical report (compiled, 6 pp)
+report/report.pdf                    technical report (compiled, 7 pp)
 report/results.json                  every reported number, written by the notebook
 figures/                             all 15 figures, written by the notebook
 data/olivetti_py3.pkz                Olivetti face database (1.3 MB), bundled

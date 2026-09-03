@@ -2,3 +2,12 @@
 __pycache__/
 *.py[cod]
 
+# LaTeX build artefacts
+*.aux
+*.log
+*.out
+*.toc
+
+
+# Local audit tooling, not part of the submission
+.claude/

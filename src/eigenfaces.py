@@ -48,23 +48,6 @@ def illumination_ramp(X, strength, shape=IMG_SHAPE):
     return np.clip(X * ramp[None, :], 0.0, 1.0)
 
 
-def add_gaussian_noise(X, sigma, rng):
-    return np.clip(X + rng.normal(0, sigma, X.shape), 0.0, 1.0)
-
-
-def occlude(X, frac, shape=IMG_SHAPE, rng=None):
-    """Black out a square patch covering `frac` of the image area."""
-    h, w = shape
-    side = int(round(np.sqrt(frac * h * w)))
-    out = X.reshape(-1, h, w).copy()
-    rng = rng or np.random.default_rng(0)
-    for img in out:
-        r = rng.integers(0, max(1, h - side))
-        c = rng.integers(0, max(1, w - side))
-        img[r:r + side, c:c + side] = 0.0
-    return out.reshape(len(X), -1)
-
-
 # --------------------------------------------------------------------------
 # Evaluation
 # --------------------------------------------------------------------------
