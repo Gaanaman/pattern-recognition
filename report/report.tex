@@ -8,17 +8,24 @@
 \usepackage{booktabs}
 \usepackage{microtype}
 \usepackage[font=small,labelfont=bf,skip=6pt]{caption}
+\usepackage[round]{natbib}
 \usepackage[colorlinks=true,linkcolor=black,citecolor=black,urlcolor=blue]{hyperref}
 
 \graphicspath{{../figures/}}
 \setlength{\parskip}{0.55em}
 \setlength{\parindent}{0pt}
 \linespread{1.02}
+\widowpenalty=10000
+\clubpenalty=10000
+\hyphenpenalty=10000
+\exhyphenpenalty=10000
+\tolerance=1500
+\emergencystretch=2em
 
-\title{\vspace{-1.4cm}\textbf{Face Recognition Using Eigenfaces\\and Pattern Classification}}
+\title{\vspace{-1.4cm}Face Recognition Using Eigenfaces\\and Pattern Classification}
 \author{Daniel Kpakpo Adotey~~\textbar~~ID 22424924\\
 \texttt{dkadotey@st.ug.edu.gh}\\[0.35em]
-DSCD612 Pattern Recognition --- Project 3\\
+DSCD612 Pattern Recognition, Project 3\\
 MPhil/MSc Data Science, University of Ghana}
 \date{Second Semester, 2025/2026}
 
@@ -30,44 +37,46 @@ MPhil/MSc Data Science, University of Ghana}
 \section{Problem and dataset}
 %======================================================================
 
-Closed-set face identification asks which of $C$ enrolled individuals a given
-image depicts. Posed directly in pixel space the problem is badly conditioned:
+Closed-set face identification is the task of identifying the person in an
+image from a fixed set of enrolled individuals. Posed directly in pixel space the problem is badly conditioned:
 a $64\times64$ greyscale image is a point in $\mathbb{R}^{4096}$ and the dataset
-used here supplies 400 such points, so features outnumber observations by about
+used here contains 400 such vectors, so features outnumber observations by about
 ten to one. The sample covariance matrix is singular by construction and no
 per-class density is estimable.
 
 Face images do not fill $\mathbb{R}^{4096}$. They concentrate near a much
-lower-dimensional structure, because faces share a common geometry. The
-Eigenfaces method \cite{turk1991} exploits this: it finds the linear subspace
-holding most of the variation across a set of faces, then recognises inside it.
-This report implements that pipeline from first principles, including the
-principal component analysis itself, to answer the project's central question:
+lower-dimensional structure, because faces have a common geometry. The
+Eigenfaces method \citep{turk1991} is built on this. The linear subspace
+holding most of the variation across a set of faces is estimated, and
+classification takes place inside it. That pipeline is implemented here from
+first principles, including the principal component analysis itself. The
+central question of the project is:
 
 \begin{quote}
 How much dimensionality can be removed from facial images before
 identity-discriminating information is significantly lost?
 \end{quote}
 
-The question admits two different measurements. \emph{Reconstruction} asks how
-much pixel variance survives; \emph{discrimination} asks how well identities can
-still be told apart. The main finding here is that the two criteria disagree by
-a factor of about four, for a reason that the component structure explains.
+Two criteria give different answers. Under \emph{reconstruction}, what counts
+is how much pixel variance is retained; under \emph{discrimination}, how well
+identities can still be told apart. The main finding here is that the two
+criteria differ by a factor of about four, for a reason visible in the
+component structure.
 
-The \textbf{Olivetti (ORL) database} \cite{samaria1994} supplies 400 greyscale
-images of 40 subjects, ten each, normalised to $[0,1]$. Within a subject the
-images vary in lighting, expression, and the presence of glasses. All are
-cropped, frontal, and roughly aligned against a dark background, so this study
-measures the recognition method rather than a face \emph{detection} front end.
-The redundancy that motivates the method is measurable: among 300 sampled pixels
+The Olivetti (ORL) database \citep{samaria1994} consists of 400 greyscale images
+of 40 subjects, ten each, normalised to $[0,1]$. Within a subject the images
+vary in lighting, expression, and the presence of glasses. All are cropped,
+frontal, and roughly aligned against a dark background, so the experiments
+isolate the recognition method from any face \emph{detection} front end. The
+redundancy that motivates the method is measurable. Among 300 sampled pixels
 the mean absolute pairwise correlation is $0.26$ and $10.4\%$ of pairs exceed
 $|r|=0.5$.
 
 %======================================================================
-\section{Method}
+\section{Eigenface method}
 %======================================================================
 
-\subsection{Representation and principal component analysis}
+\subsection{Principal components}
 
 Each image is flattened row-major into $x_i\in\mathbb{R}^{d}$, $d=4096$, and
 stacked into $X=[x_1,\dots,x_N]^{T}$ with $N=400$. Writing
@@ -77,7 +86,16 @@ $\mu=\frac{1}{N}\sum_i x_i$ and $A=X-\mathbf{1}\mu^{T}$, the sample covariance i
 \label{eq:cov}
 \end{equation}
 
-PCA maximises the projected variance $v^{T}\Sigma v$ subject to $v^{T}v=1$. With
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.90\textwidth]{04_mean_face.png}
+\caption{The mean face $\mu$ over all 400 images, and three mean-centred images
+$x_i-\mu$ (red above the mean, blue below).}
+\label{fig:mean}
+\end{figure}
+
+Figure~\ref{fig:mean} shows $\mu$ and three of the mean-centred images. PCA
+maximises the projected variance $v^{T}\Sigma v$ subject to $v^{T}v=1$. With
 a Lagrange multiplier, $\mathcal{L}=v^{T}\Sigma v-\lambda(v^{T}v-1)$, and
 $\partial\mathcal{L}/\partial v=0$ yields the eigenvalue problem
 \begin{equation}
@@ -85,14 +103,15 @@ $\partial\mathcal{L}/\partial v=0$ yields the eigenvalue problem
 \label{eq:eig}
 \end{equation}
 
-The stationary points of the projected variance are the eigenvectors of
-$\Sigma$, and since $v_i^{T}\Sigma v_i=\lambda_i$, each eigenvalue is the
-variance along its own direction. Keeping the top $k$ eigenvectors as columns of
-$W_k$ gives the rank-$k$ subspace of least expected squared reconstruction error
-(Eckart--Young \cite{eckart1936}). $\Sigma$ is real symmetric, so
+By Equation~\eqref{eq:eig}, the stationary points of the projected variance
+are the eigenvectors of the covariance $\Sigma$ in Equation~\eqref{eq:cov},
+and since $v_i^{T}\Sigma v_i=\lambda_i$, each eigenvalue is the variance along
+the corresponding eigenvector. Keeping the top $k$
+eigenvectors as columns of $W_k$ gives the rank-$k$ subspace of least expected
+squared reconstruction error \citep{eckart1936}. $\Sigma$ is real symmetric, so
 $W_k^{T}W_k=I_k$.
 
-\subsection{The snapshot trick}
+\subsection{Snapshot trick}
 
 $\Sigma$ is $4096\times4096$ and singular: it sums $N_{\text{train}}$ rank-one
 terms under one linear constraint, so
@@ -105,32 +124,34 @@ left-multiplying by $A^{T}$ gives
 \iff \Sigma\,(A^{T}u_i)=\lambda_i\,(A^{T}u_i),
 \label{eq:snapshot}
 \end{equation}
-so $A^{T}u_i$ is an eigenvector of $\Sigma$ carrying the same eigenvalue. The
-non-zero spectrum of a $4096\times4096$ matrix follows from a $280\times280$
-eigenproblem, which cut fitting time from $12.8$~s to $0.020$~s, a 626-fold
-reduction. The resulting vectors are normalised to unit length.
+so $A^{T}u_i$ is an eigenvector of $\Sigma$ with the same eigenvalue. By
+Equation~\eqref{eq:snapshot}, the non-zero spectrum of a $4096\times4096$
+matrix follows from a $280\times280$ eigenproblem. On the machine used here,
+fitting took $0.021$~s by this route against $12.7$~s for the direct
+decomposition, a 614-fold reduction. The resulting vectors are normalised to
+unit length.
 
 Each $v_i$ lies in $\mathbb{R}^{4096}$, the space of the images themselves, so
 it reshapes to $64\times64$ and displays as a \emph{pattern of deviation from
-the mean face}. Being a linear combination of training faces,
-$v_i\propto\sum_j u_{ij}(x_j-\mu)$, it inherits their face-like structure, hence
-the name, and any face is then a recipe of $k$ coefficients over that shared
+the mean face}. As a linear combination of training faces,
+$v_i\propto\sum_j u_{ij}(x_j-\mu)$, it is itself face-like, hence the name, and a
+face is then represented by $k$ coefficients over that shared
 basis: $x\approx\mu+\sum_{j\le k} z_jv_j$ with $z=W_k^{T}(x-\mu)$.
 
 \subsection{Classification and verification}
 
 A test face is projected to $z=W_k^{T}(x-\mu)$ and classified by $k$-nearest
-neighbours \cite{duda2001}. The non-parametric rule is a necessity here rather
-than a preference. With 40 classes and 7 training images each, a full Gaussian
-per class would need $k+k(k+1)/2$ parameters from 7 observations. Because $W_k$
-is orthonormal, distances in the projected space equal distances between the
-pixel-space reconstructions. Two variants recur: \textbf{plain} projection,
+neighbours \citep{duda2001}. The non-parametric rule follows from the sample
+size. With 40 classes and 7 training images each, a full Gaussian per class
+would have $k+k(k+1)/2$ parameters to estimate from 7 observations. Because $W_k$ is
+orthonormal, distances in the projected space equal distances between the
+pixel-space reconstructions. Two variants recur: \emph{plain} projection,
 where components keep their natural scale so high-variance directions dominate,
-and \textbf{whitened} projection $\tilde z_j=z_j/\sqrt{\lambda_j}$, which
+and \emph{whitened} projection $\tilde z_j=z_j/\sqrt{\lambda_j}$, which
 rescales every component to unit variance and amounts to a Mahalanobis distance
 inside the retained subspace.
 
-Checked against scikit-learn's exact SVD solver, the implementation gives a
+Checked against the exact SVD solver in scikit-learn, the implementation gives a
 maximum relative eigenvalue error of $5.0\times10^{-15}$, a minimum absolute
 eigenvector dot product of $1.0000000000$, and a maximum reconstruction
 difference of $1.6\times10^{-14}$.
@@ -145,37 +166,40 @@ images and so unidentifiable by construction. The default is 7 train / 3 test
 per subject: $N_{\text{train}}=280$, $N_{\text{test}}=120$.
 
 $\mu$ and $W$ come from training images only, and test images are projected
-using those fixed parameters, because fitting PCA on all 400 images before
+using those fixed parameters, because fitting PCA on the full 400 images before
 splitting leaks information into the basis and inflates the accuracy reported
-from it. With 120 test images a single split carries a standard error near 2.4
-percentage points, so every figure reported here averages \textbf{10}
-independent splits and carries its standard deviation.
+from it. With 120 test images a single split has a standard error near
+$0.024$, so every figure reported here is the mean over 10 independent splits and
+is given with its standard deviation.
 
 %======================================================================
-\section{Results}
+\section{Recognition results}
 %======================================================================
 
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=0.94\textwidth]{06_eigenfaces.png}
-\caption{The first 16 Eigenfaces, with each component's share of total variance.}
+\caption{The first 16 Eigenfaces, with the share of total variance for each component.}
 \label{fig:eigenfaces}
 \end{figure}
 
 The first three components in Figure~\ref{fig:eigenfaces} are low in spatial
-frequency and describe whole-image photometric structure rather than facial
-detail. $v_1$ is a broad contrast pattern separating the brow and eye band from
-the rest of the face, $v_2$ is nearly flat and encodes overall luminance, and
-$v_3$ carries a top-to-bottom intensity gradient. None of them describes who the
-person is. Recognisable structure begins at $v_4$ --- spectacle frames,
-hairline, moustaches, and changes around the mouth. Later components grow more
-localised and higher in frequency, carrying identity information alongside
-sampling noise specific to these training images.
+frequency and, on inspection, correspond to whole-image photometric structure
+rather than facial detail. $v_1$ is a broad contrast pattern separating the brow and
+eye band from the rest of the face, $v_2$ is nearly flat and encodes overall
+luminance, and $v_3$ is a top-to-bottom intensity gradient. None of the three
+distinguishes one person from another. Recognisable structure begins at $v_4$:
+spectacle frames, hairline, moustaches, and changes around the mouth. Later
+components become more localised and higher in frequency, with identity
+information alongside sampling noise specific to these training images.
 
-The variance thresholds requested by the brief need 59, 103, and 198 components
-for 90\%, 95\%, and 99\% respectively, that is 1.44\%, 2.51\%, and 4.83\% of the
-original 4096 dimensions. The first component alone holds 23.4\% of total
-variance and the first ten hold 66.1\%.
+Meeting the variance thresholds set in the brief takes 59, 103, and 198
+components for 90\%, 95\%, and 99\% respectively, that is 1.44\%, 2.51\%, and
+4.83\% of the original 4096 dimensions. The share of total variance is 23.4\%
+for the first component alone and 66.1\% for the first ten.
+
+In Figure~\ref{fig:acc} and Table~\ref{tab:acc} the two curves differ in
+shape, and the contrast between them is the clearest result here.
 
 \begin{figure}[htbp]
 \centering
@@ -201,48 +225,48 @@ $k$ & Plain & Whitened & $k$ & Plain & Whitened\\
 \end{tabular}
 \end{table}
 
-The two curves in Figure~\ref{fig:acc} behave differently, and the contrast
-between them is the clearest result here.
+The plain curve rises and then flattens without falling, which follows from the
+geometry of the projection. $W$ is orthonormal, so with every component
+retained the Euclidean distance in Eigenface space equals the pixel distance
+exactly, and adding components moves 1-NN monotonically towards the
+full-dimensional answer. Trailing components have tiny eigenvalues and
+contribute almost nothing to a Euclidean distance, so under this metric surplus
+components cost only computation.
 
-The plain curve rises and then flattens rather than falling, which follows from
-the geometry rather than from the dataset. $W$ is orthonormal, so with every
-component retained the Euclidean distance in Eigenface space equals the pixel
-distance exactly, and adding components moves 1-NN monotonically towards the
-full-dimensional answer. Trailing components carry tiny eigenvalues and
-contribute almost nothing to a Euclidean distance, so under this metric keeping
-too many components costs computation rather than accuracy.
+Under whitening the curve rises, peaks at $k=20$, then falls from $0.944$ to $0.778$
+at $k=200$. Whitening divides component $j$ by $\sqrt{\lambda_j}$, which for a
+trailing component means dividing by a very small number and so scaling it up to the
+same variance as the leading ones. The $i$-th eigenvalue, however, comes from
+280 observations in 4096 dimensions. For large $i$ that estimate is
+increasingly dominated by sampling noise, and the direction then reflects
+quirks of the particular training images more than a property of the
+population. Whitening amplifies exactly that noise, producing the familiar
+overfitting signature.
 
-The whitened curve rises, peaks at $k=20$, then falls from $0.944$ to $0.778$ at
-$k=200$. Whitening divides component $j$ by $\sqrt{\lambda_j}$, which for a
-trailing component means dividing by a very small number and so promoting it to
-equal footing with the leading ones. The $i$-th eigenvalue, however, comes from
-280 observations in 4096 dimensions. For large $i$ that estimate is dominated by
-sampling noise, and the direction then describes quirks of the particular
-training images rather than a property of the population. Whitening amplifies
-exactly that noise, producing the familiar overfitting signature.
-
-Both curves point at one principle. The useful number of components is set by
-how many directions the sample estimates reliably, not by how many exist
-mathematically, and whether the unreliable ones do damage depends on whether the
-metric gives them weight. That is why the curves diverge, and why ``how many
-components should I keep?'' has no answer the representation alone can supply.
+The useful number of components is set by how many directions are estimated
+reliably from the sample, not by how many exist mathematically, and whether the
+unreliable ones degrade accuracy depends on whether the metric gives them
+weight. Both curves follow from this. It is why they diverge, and why ``how
+many components should I keep?'' has no answer from the representation
+alone.
 
 At $k=75$, 1-NN with Euclidean distance gives accuracy $0.9367\pm0.0137$, macro
 precision $0.9507$, macro recall $0.9367$, and macro $F_1$ $0.9339$.
 Macro-averaging weights every subject equally, so failure on a few individuals
-cannot hide behind a good average. On the reference split 8 of 120 test images
-are misclassified and the confusion matrix is almost entirely diagonal, with no
-pair of subjects mutually confused.
+is not masked by a good average. On the reference split 8 of 120 test images
+are misclassified and the confusion matrix is close to diagonal, with no pair
+of subjects mutually confused.
 
-Across distances at $k=75$, Manhattan reaches $0.9442$ against Euclidean's
-$0.9367$ and cosine's $0.9300$ at 1-NN, a margin well under one standard
-deviation. The dominant effect is neighbourhood size rather than the distance
-function. Euclidean accuracy falls to $0.854$ at 3-NN and $0.805$ at 5-NN. With
-7 training images per subject a 5-NN vote often reaches past the correct
-identity into neighbouring clusters, so the usual argument that larger $n$
-smooths noise assumes a sample density this problem lacks.
+Across distances at $k=75$ and 1-NN, Manhattan distance gives $0.9442$,
+Euclidean $0.9367$, and cosine $0.9300$, a margin well under one standard
+deviation. The effect of neighbourhood size is larger than that of the distance
+function.
+Euclidean accuracy falls to $0.854$ at 3-NN and $0.805$ at 5-NN. With 7
+training images per subject a 5-NN vote often includes images of other
+identities from neighbouring clusters, so the usual argument that larger $n$
+smooths noise rests on a sample density absent here.
 
-\subsection{Reconstruction}
+\subsection{Reconstruction fidelity}
 
 \begin{figure}[htbp]
 \centering
@@ -255,7 +279,7 @@ Reconstruction maps a projection back by $\hat x=\mu+W_kW_k^{T}(x-\mu)$, and
 since $W_kW_k^{T}$ is an orthogonal projector, the residual lies wholly in the
 discarded directions, giving
 $\mathbb{E}\|x-\hat x\|^2=\sum_{j>k}\lambda_j$. In Figure~\ref{fig:recon}, at
-$k=1$ every face is the mean face with a photometric adjustment. Identity
+$k=1$ each face is the mean face with a photometric adjustment. Identity
 becomes visually recognisable around $k=20$ to $30$, and past $k\approx100$ the
 changes are confined to fine texture. Test RMSE falls from $0.083$ at $k=10$ to
 $0.050$ at $k=100$ and $0.041$ at $k=279$, with PSNR $21.8$, $26.2$, and
@@ -268,31 +292,38 @@ $28.1$~dB.
 \label{fig:diverge}
 \end{figure}
 
-Reconstruction error keeps falling well past the point where recognition stops
-improving, because the variance removed across that range, fine skin texture,
-sensor noise, small expression detail, feeds pixel fidelity and not identity.
-Holding 95\% of variance costs about four times the components recognition
-needs, $k=103$ against $k=25$, and buys roughly one accuracy point, which sits
-inside the split-to-split noise. A variance threshold is therefore the wrong
-criterion for choosing $k$ in a recogniser: it measures how well the subspace
-reproduces images, where recognition needs it to separate identities.
+Figure~\ref{fig:diverge} shows reconstruction error still falling well past the
+point where recognition stops improving, because the variance removed across
+that range, fine skin texture, sensor noise, small expression detail,
+contributes to pixel fidelity and not to identity. Holding 95\% of variance
+costs about four times the components required for recognition, $k=103$ against
+$k=25$, and moves accuracy from $0.926$ to $0.935$ (measured at $k=100$), a
+difference inside the split-to-split noise. A variance threshold is therefore
+the wrong criterion for choosing $k$ in this recogniser: it is a measure of how
+well the subspace reproduces images, whereas recognition depends on how well
+the subspace separates identities.
 
 %======================================================================
 \section{Critical analysis}
 %======================================================================
 
-\textbf{Enrolment set size} is the strongest single influence measured. Accuracy
-runs $0.547$, $0.698$, $0.774$, $0.820$, $0.867$, $0.923$, and $0.950$ for 1, 2,
-3, 4, 5, 7, and 9 training images per subject, and has not saturated at nine. Two
-mechanisms compound. The classifier holds few reference points, so a test image
-with an unseen expression has no near neighbour of the correct identity; and the
-basis itself degrades, since at $n_{\text{tr}}=1$ only 39 components exist,
-estimated from 40 images. The 40-point drop from nine images to one is the
-familiar one-sample-per-person difficulty.
+\subsection{Enrolment size}
 
-\textbf{Illumination.} Test images were multiplied by a left-to-right linear
-intensity ramp of increasing strength, modelling a directional source absent at
-enrolment, with training images untouched.
+Enrolment set size is the strongest single influence measured. Accuracy runs
+$0.547$, $0.698$, $0.774$, $0.820$, $0.867$, $0.923$, and $0.950$ for 1, 2, 3,
+4, 5, 7, and 9 training images per subject, and has not saturated at nine. Two
+mechanisms compound. Few reference images are enrolled per subject, so a test image
+with an unseen expression has no near neighbour of the correct identity; and
+the basis itself degrades, since at $n_{\text{tr}}=1$ only 39 components exist,
+estimated from 40 images. The fall from $0.950$ at nine images to $0.547$ at
+one is the familiar one-sample-per-person difficulty.
+
+\subsection{Illumination mismatch}
+
+Table~\ref{tab:illum} and Figure~\ref{fig:illum} report accuracy when test
+images are multiplied by a left-to-right linear intensity ramp of increasing
+strength, modelling a directional source absent at enrolment, with training
+images untouched.
 
 \begin{table}[htbp]
 \centering
@@ -317,37 +348,39 @@ increasing illumination mismatch.}
 \label{fig:illum}
 \end{figure}
 
-Euclidean 1-NN collapses. Of the two mitigations tested, only one works.
+Euclidean 1-NN falls from $0.937$ to $0.142$ across the ramp. Of the two
+mitigations tested, only one works.
 
-Cosine distance does not help, tracking the Euclidean result at every strength,
-because the expectation that it would help assumed a uniform brightness change,
-which shifts a projection mainly in magnitude. This ramp varies spatially,
-brightening one side of the face and darkening the other, so it rotates the
-projection rather than lengthening it, and discarding magnitude discards nothing
-relevant. Invariance to global scaling buys little against lighting with spatial
-structure, which real lighting always has.
+Cosine distance gives no benefit: at each of the six ramp strengths its
+accuracy is within $0.04$ of the Euclidean value. The expectation that it would help rested on a uniform
+brightness change, which shifts a projection mainly in magnitude. This ramp varies
+spatially, brightening one side of the face and darkening the other, so it
+rotates the projection without lengthening it, and discarding magnitude
+discards nothing relevant. Invariance to global scaling is of little use against
+lighting with spatial structure, which real lighting generally has.
 
-Discarding the first three components does work. At the strongest ramp Euclidean
-1-NN falls to $0.142$ while the same classifier without those components holds
-$0.783$, so those three directions absorb nearly the whole perturbation. This is
+With the first three components removed, accuracy under the strongest ramp
+is $0.783$, against $0.142$ for Euclidean 1-NN with those components, so those
+three directions contain nearly the whole perturbation. This is
 experimental support for the reading of the component structure given earlier:
 the leading eigenfaces encode photometric conditions rather than identity.
-Discarding the three directions that carry the largest share of variance in the
+Discarding the three directions with the largest share of variance in the
 entire dataset improves recognition under illumination change. Variance ranking
-and discriminative value are not merely different; at the top of the spectrum
-they oppose each other.
+and discriminative value differ, and at the top of the spectrum they oppose
+each other.
 
 Under matched illumination, dropping up to three components moves accuracy by
 less than one standard deviation either way, and dropping beyond about five
 costs real accuracy. Removing three discards 46\% of total variance and leaves
 recognition unchanged. Discarding leading components is therefore insurance
-against mismatched conditions rather than a free gain.
+against mismatched conditions, not a free gain.
 
 %======================================================================
-\section{Answering the research question}
+\section{Research question}
 %======================================================================
 
-1-NN on the raw 4096 pixels, with no reduction, gives $0.9342\pm0.0142$.
+1-NN on the raw 4096 pixels, with no reduction, gives $0.9342\pm0.0142$, the
+reference against which Table~\ref{tab:rq} sets three tolerance levels.
 
 \begin{table}[htbp]
 \centering
@@ -364,30 +397,31 @@ Within 5\% of peak & 15 & 0.919 & 99.63\% & 72.7\%\\
 \end{tabular}
 \end{table}
 
-About \textbf{99\% of the original dimensions can be discarded with no
-measurable loss of identity information}. At $k=25$ the Eigenface representation
-scores $0.9258\pm0.0160$ against the raw-pixel $0.9342\pm0.0142$, nominally
-lower by well under the split-to-split noise, so the two are indistinguishable
-at this sample size. The 164-fold compression is free rather than beneficial.
+About 99\% of the original dimensions can be discarded with no measurable loss
+of identity information. At $k=25$ the Eigenface representation scores
+$0.9258\pm0.0160$ against the raw-pixel $0.9342\pm0.0142$, nominally lower by
+well under the split-to-split noise, so the two are indistinguishable at this
+sample size. The 164-fold compression costs nothing in accuracy and gains
+nothing either.
 
-The computational claim needs the same care. Measured end to end the Eigenface
-pipeline runs slower than raw 1-NN, $17.8$~ms against $3.5$~ms, because it
-includes fitting PCA on every split. The reduction repays itself at query time
-and at scale, since each comparison costs 25 multiplications instead of 4096 and
-the gallery shrinks by the same factor, but across 400 images that saving does
-not cover the one-off decomposition.
+Measured end to end, the Eigenface pipeline runs slower than raw 1-NN,
+$16.4$~ms against $3.3$~ms per split, because it includes fitting PCA on every
+split. The benefit of the reduction is at query time and at scale: each comparison
+costs 25 multiplications instead of 4096 and the gallery is smaller by the same
+factor, but across 400 images that saving does not cover the
+one-off decomposition.
 
-Three qualifications hold the headline in place. The bound comes from sample
-size, not from faces: the training set admits at most $N_{\text{train}}-1=279$
-components, so achievable compression depends on how many images were available
-rather than on any intrinsic dimensionality of human faces. The threshold
-depends on the criterion, since under reconstruction the answer is several times
-larger. It depends on operating conditions too, because every figure here comes
-from images captured much like the training images. A compression lossless under
+Three qualifications apply. The bound comes from sample size, not from faces;
+the training set yields at most $N_{\text{train}}-1=279$ components, so
+achievable compression depends on how many images were available rather than
+on any intrinsic dimensionality of human faces. The threshold depends on the
+criterion, since under reconstruction the answer is several times larger. It
+depends on operating conditions too, because every figure here comes from
+images captured much like the training images. A compression lossless under
 matched conditions need not stay lossless under mismatched ones.
 
 %======================================================================
-\section{Limitations}
+\section{Scope and limitations}
 %======================================================================
 
 ORL faces are cropped, frontal, aligned, and captured against a constant
@@ -397,73 +431,79 @@ is often the dominant failure source, so these accuracies do not estimate
 unconstrained performance.
 
 PCA is unsupervised and maximises total variance without reference to labels,
-which is why the leading components encode illumination. Fisherfaces
-\cite{belhumeur1997}, maximising between-class to within-class scatter,
-typically does better under lighting variation. That comparison was not
-implemented here, however, so the claim that PCA is suboptimal rests on the
+which is consistent with the leading components encoding illumination.
+Fisherfaces \citep{belhumeur1997}, maximising between-class to within-class
+scatter, typically does better under lighting variation. That comparison was
+not implemented here, however, so the claim that PCA is suboptimal rests on the
 observed component structure and the illumination experiment rather than on a
 direct measurement.
 
 The model is linear, while pose and expression move a face along a curved
 manifold a linear subspace only approximates. The scale is small. Even across
-ten splits the standard deviation at the operating point is about 1.5 percentage
-points, so differences of a point or two carry no interpretation here. Accuracy
-also falls as the gallery grows, so these figures would not transfer to
-thousands of identities. The illumination model is synthetic, omitting cast
-shadows, specularities, and saturation, all non-linear effects likely to degrade
-performance further. The setting is closed-set: nearest-neighbour classification
-always returns some identity, whereas a deployed system needs a rejection
-threshold, a separate problem.
+ten splits the standard deviation at the operating point is about $0.014$, so
+differences of $0.01$ or $0.02$ have no interpretation here. Accuracy also
+falls as the gallery grows, so these figures would not transfer to thousands of
+identities. The illumination model is synthetic, omitting cast shadows,
+specularities, and saturation, all non-linear effects likely to degrade
+performance further. The setting is closed-set: nearest-neighbour
+classification always returns some identity, whereas a deployed system requires a
+rejection threshold, a separate problem.
 
 %======================================================================
-\section{Conclusions}
+\section{Summary and conclusions}
 %======================================================================
 
-The snapshot trick recovers the eigenfaces from a $280\times280$ eigenproblem
-instead of a $4096\times4096$ one, 626 times faster, matching a reference
-implementation to machine precision. The leading eigenfaces encode photometric
-conditions rather than identity, a consequence of ranking directions by variance
-and confirmed by the illumination experiment. Recognition accuracy saturates at
-a few tens of components while reconstruction error keeps falling, so the
-conventional 95\% variance threshold calls for roughly four times the components
-recognition needs. Retaining more components does not necessarily generalise
-better, and whether it hurts depends on the metric. Plain Euclidean 1-NN
-plateaus, where a whitened metric degrades as noise-dominated components are
-amplified. Enrolment set size dominates every other factor tested, costing about
-40 percentage points between nine training images per subject and one. Unseen
+Recovering the eigenfaces from a $280\times280$ eigenproblem instead of a
+$4096\times4096$ one ran 614 times faster on the machine used and matched a
+reference implementation to machine precision. The leading
+eigenfaces encode photometric conditions rather than identity, a consequence of
+ranking directions by variance and supported by the illumination experiment.
+Recognition accuracy saturates at a few tens of components while
+reconstruction error keeps falling, so the conventional 95\% variance threshold
+corresponds to roughly four times the components required for recognition. Retaining more
+components does not necessarily generalise better, and whether it degrades
+accuracy depends on the metric: plain Euclidean 1-NN plateaus, where a whitened
+metric degrades as noise-dominated components are amplified.
+
+Enrolment set size has the largest effect of the factors tested, moving accuracy from
+$0.950$ with nine training images per subject to $0.547$ with one. Unseen
 illumination is the most damaging perturbation, and the effective remedy is to
-discard leading components rather than to change the distance measure. Cosine
+discard leading components, not to change the distance measure. Cosine
 distance, often recommended for this purpose, gave no benefit against spatially
 varying lighting.
 
 All results come from \texttt{notebooks/eigenfaces\_project.ipynb}, which runs
 top to bottom, writes every figure to \texttt{figures/} and every number to
-\texttt{report/results.json}, and uses fixed seeds so the reported values
-reproduce exactly.
+\texttt{report/results.json}, and uses fixed seeds so the reported accuracies
+reproduce exactly; the timings are wall-clock measurements from one machine.
 
 %======================================================================
 \begin{thebibliography}{9}
-\bibitem{turk1991}
-M.~Turk and A.~Pentland, ``Eigenfaces for Recognition,''
-\emph{Journal of Cognitive Neuroscience}, vol.~3, no.~1, pp.~71--86, 1991.
+\bibitem[Belhumeur et al.(1997)]{belhumeur1997}
+Belhumeur, P.~N., Hespanha, J.~P., \& Kriegman, D.~J. (1997). Eigenfaces vs.\
+Fisherfaces: Recognition using class specific linear projection. \emph{IEEE
+Transactions on Pattern Analysis and Machine Intelligence, 19}(7), 711--720.
+\url{https://doi.org/10.1109/34.598228}
 
-\bibitem{samaria1994}
-F.~Samaria and A.~Harter, ``Parameterisation of a Stochastic Model for Human
-Face Identification,'' in \emph{Proc.\ 2nd IEEE Workshop on Applications of
-Computer Vision}, Sarasota FL, 1994.
+\bibitem[Duda et al.(2001)]{duda2001}
+Duda, R.~O., Hart, P.~E., \& Stork, D.~G. (2001). \emph{Pattern classification}
+(2nd ed.). Wiley.
 
-\bibitem{belhumeur1997}
-P.~Belhumeur, J.~Hespanha and D.~Kriegman, ``Eigenfaces vs.\ Fisherfaces:
-Recognition Using Class Specific Linear Projection,'' \emph{IEEE Transactions on
-Pattern Analysis and Machine Intelligence}, vol.~19, no.~7, pp.~711--720, 1997.
+\bibitem[Eckart \& Young(1936)]{eckart1936}
+Eckart, C., \& Young, G. (1936). The approximation of one matrix by another of
+lower rank. \emph{Psychometrika, 1}(3), 211--218.
+\url{https://doi.org/10.1007/BF02288367}
 
-\bibitem{eckart1936}
-C.~Eckart and G.~Young, ``The approximation of one matrix by another of lower
-rank,'' \emph{Psychometrika}, vol.~1, no.~3, pp.~211--218, 1936.
+\bibitem[Samaria \& Harter(1994)]{samaria1994}
+Samaria, F.~S., \& Harter, A.~C. (1994). Parameterisation of a stochastic model
+for human face identification. In \emph{Proceedings of the 2nd IEEE Workshop on
+Applications of Computer Vision} (pp.~138--142). IEEE.
+\url{https://doi.org/10.1109/ACV.1994.341300}
 
-\bibitem{duda2001}
-R.~O.~Duda, P.~E.~Hart and D.~G.~Stork, \emph{Pattern Classification}, 2nd~ed.,
-Wiley, 2001.
+\bibitem[Turk \& Pentland(1991)]{turk1991}
+Turk, M., \& Pentland, A. (1991). Eigenfaces for recognition. \emph{Journal of
+Cognitive Neuroscience, 3}(1), 71--86.
+\url{https://doi.org/10.1162/jocn.1991.3.1.71}
 \end{thebibliography}
 
 \end{document}
