@@ -31,7 +31,7 @@ findings. Each project should include:
 
 ---
 
-DSCD612 Pattern Recognition — Project 3
+DSCD612 Pattern Recognition, Project 3
 Daniel Kpakpo Adotey · ID 22424924 · dkadotey@st.ug.edu.gh
 MPhil/MSc Data Science, University of Ghana, Second Semester 2025/2026
 
@@ -42,7 +42,7 @@ notebooks/eigenfaces_project.ipynb   main deliverable, runs top to bottom
 notebooks/eigenfaces_project.py      same notebook in jupytext percent format
 src/eigenfaces.py                    splitting, perturbation, metric and plotting helpers
 report/report.tex                    technical report (LaTeX source)
-report/report.pdf                    technical report (compiled, 6 pp)
+report/report.pdf                    technical report (compiled, 7 pages)
 report/results.json                  every reported number, written by the notebook
 figures/                             all 15 figures, written by the notebook
 data/olivetti_py3.pkz                Olivetti face database (1.3 MB), bundled
@@ -65,7 +65,8 @@ jupyter nbconvert --to notebook --execute --inplace notebooks/eigenfaces_project
 No internet connection is required. A full execution takes about 30 seconds
 and recreates every figure in
 `figures/` and every number in `report/results.json`. All splits are generated
-from fixed seeds, so every value in the report reproduces exactly.
+from fixed seeds, so every accuracy in the report reproduces exactly; the two
+wall-clock timings depend on the machine.
 
 To rebuild the report:
 
@@ -87,3 +88,11 @@ past that point, so the conventional 95%-variance rule calls for about four
 times more components than recognition needs. The leading eigenfaces encode
 illumination rather than identity, and discarding them substantially improves
 robustness to lighting change.
+
+## Figures
+
+![The first 16 eigenfaces](figures/06_eigenfaces.png)
+*The first 16 eigenfaces, each with its share of total variance.*
+
+![Reconstructions at increasing k](figures/12_reconstructions.png)
+*Three test faces reconstructed from 1 to 279 components.*

@@ -1,16 +1,16 @@
 {
   "mean_abs_pixel_corr": 0.2597910707095931,
   "frac_pixel_pairs_r_gt_0.5": 0.10379041248606466,
-  "time_snapshot_s": 0.1505562920065131,
-  "time_direct_s": 10.375991958979284,
-  "snapshot_speedup": 68.91769065706278,
+  "time_snapshot_s": 0.02073066699085757,
+  "time_direct_s": 12.732902749994537,
+  "snapshot_speedup": 614.206130251857,
   "k_for_variance": {
     "0.9": 59,
     "0.95": 103,
     "0.99": 198
   },
   "evr_first": 0.23438843234584694,
-  "evr_first10": 0.6609554487665451,
+  "evr_first10": 0.6609554487665453,
   "k_grid": [
     1,
     2,
@@ -441,24 +441,28 @@
     "acc": 0.9258333333333335,
     "sd": 0.01600781059358214
   },
+  "end_to_end_ms": {
+    "raw_pixel": 3.2451044011395425,
+    "eigenface_k25": 16.40367510553915
+  },
   "research_question_answer": {
     "matches peak": {
       "k": 75,
       "accuracy": 0.9366666666666665,
       "dims_removed_pct": 98.1689453125,
-      "variance_retained": 0.9238245539683289
+      "variance_retained": 0.9238245539683291
     },
     "within 1% of peak": {
       "k": 30,
       "accuracy": 0.9291666666666666,
       "dims_removed_pct": 99.267578125,
-      "variance_retained": 0.826536527630233
+      "variance_retained": 0.8265365276302332
     },
     "within 5% of peak": {
       "k": 15,
       "accuracy": 0.9191666666666667,
       "dims_removed_pct": 99.6337890625,
-      "variance_retained": 0.7266098622054014
+      "variance_retained": 0.7266098622054016
     }
   },
   "config": {
